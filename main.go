@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -23,12 +24,17 @@ type Zipper struct {
 	SSL     bool
 }
 
+var (
+	src = flag.String("src", "", "source dir")
+	dst = flag.String("dst", "", "zip location")
+)
+
 func main() {
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalln("couldnt get hostname, exiting")
 	}
-	x := fmt.Sprintf("/Volumes/s/%v_bak.zip", hostname)
+	x := fmt.Sprintf("%v/%v_bak.zip", *dst, hostname)
 	zpr := Zipper{
 		URL:     "storage.nullferatu.com:9000",
 		ID:      "RMCMjDSBEUnHT0vO",
@@ -44,12 +50,11 @@ func main() {
 	if err != nil {
 		log.Fatalln("could not create minio, exiting")
 	}
-	path := "/Users/rxlx/"
 	arc, err := os.Create(x)
 	if err != nil {
 		log.Fatalln("could not create archive, exiting")
 	}
-	err = Zip(arc, path)
+	err = Zip(arc, *src)
 	if err != nil {
 		log.Fatalln("could not create archive, exiting", err)
 	}
