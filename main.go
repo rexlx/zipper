@@ -30,6 +30,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalln("couldnt get hostname, exiting")
