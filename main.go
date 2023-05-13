@@ -43,9 +43,13 @@ const (
 )
 
 func main() {
+	// parse the flags
 	flag.Parse()
+
+	// trailing arguments are directories to ignore. i ackonwledge this is a strange convention
 	ignore := flag.Args()
 
+	// create our simple zipper type. these are lab credentials, please do not store prod info
 	zpr := Zipper{
 		URL:    "storage.nullferatu.com:9000",
 		ID:     "RMCMjDSBEUnHT0vO",
@@ -55,8 +59,10 @@ func main() {
 		SSL:    false,
 	}
 
+	// init the rest of our app
 	archive := zpr.init()
 
+	// init a minio client
 	mc, err := minio.New(zpr.URL, &minio.Options{
 		Creds:  credentials.NewStaticV4(zpr.ID, zpr.Key, ""),
 		Secure: zpr.SSL,
@@ -65,11 +71,13 @@ func main() {
 		log.Fatalln("could not create minio client, exiting")
 	}
 
+	// try and zip everything
 	err = zpr.zip(archive, zpr.Source, ignore)
 	if err != nil {
 		log.Fatalln("failed when zipping, exiting", err)
 	}
 
+	// save to minio
 	err = zpr.save(mc)
 	if err != nil {
 		log.Fatalln("failed when zipping, exiting", err)
