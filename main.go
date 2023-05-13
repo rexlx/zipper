@@ -16,12 +16,14 @@ import (
 )
 
 type Zipper struct {
-	URL     string
-	ID      string
-	Key     string
-	Bucket  string
-	ObjName string
-	SSL     bool
+	Source      string
+	Destination string
+	URL         string
+	ID          string
+	Key         string
+	Bucket      string
+	ObjName     string
+	SSL         bool
 }
 
 var (
@@ -29,22 +31,40 @@ var (
 	dst = flag.String("dst", "", "zip location")
 )
 
+const (
+	_   = 1 << (10 * iota)
+	KiB //1024
+	MiB
+	GiB
+	TiB
+)
+
 func main() {
 	flag.Parse()
 	ignore := flag.Args()
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalln("couldnt get hostname, exiting")
 	}
-	x := fmt.Sprintf("%v/%v_bak.zip", *dst, hostname)
+
 	zpr := Zipper{
-		URL:     "storage.nullferatu.com:9000",
-		ID:      "RMCMjDSBEUnHT0vO",
-		Key:     "OjtUEjI0KEWLCtvDIYy6DwFQ8Pgo6D3g",
-		Bucket:  "backup",
-		ObjName: fmt.Sprintf("%v_bak.zip", hostname),
-		SSL:     false,
+		URL:    "storage.nullferatu.com:9000",
+		ID:     "RMCMjDSBEUnHT0vO",
+		Key:    "OjtUEjI0KEWLCtvDIYy6DwFQ8Pgo6D3g",
+		Bucket: "backup",
+		Source: *src,
+		SSL:    false,
 	}
+
+	if *dst == "" {
+		zpr.ObjName = fmt.Sprintf("%v_bak.zip", hostname)
+		zpr.Destination = fmt.Sprintf("%v_bak.zip", hostname)
+	} else {
+		zpr.ObjName = fmt.Sprintf("%v_%v", hostname, *dst)
+		zpr.Destination = *dst
+	}
+
 	mc, err := minio.New(zpr.URL, &minio.Options{
 		Creds:  credentials.NewStaticV4(zpr.ID, zpr.Key, ""),
 		Secure: zpr.SSL,
@@ -52,29 +72,40 @@ func main() {
 	if err != nil {
 		log.Fatalln("could not create minio, exiting")
 	}
-	arc, err := os.Create(x)
+
+	arc, err := os.Create(zpr.Destination)
 	if err != nil {
 		log.Fatalln("could not create archive, exiting")
 	}
-	err = Zip(arc, *src, ignore)
+
+	err = zpr.zip(arc, *src, ignore)
 	if err != nil {
 		log.Fatalln("failed when zipping, exiting", err)
 	}
-	res, err := mc.FPutObject(
-		context.Background(),
-		zpr.Bucket,
-		zpr.ObjName,
-		x,
-		minio.PutObjectOptions{ContentType: "application/zip"})
+
+	err = zpr.save(mc)
 	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("moved:", res.Size)
-	err = os.Remove(x)
-	if err != nil {
-		log.Fatal("couldnt remove archive...", err)
+		log.Fatalln("failed when zipping, exiting", err)
 	}
 
+}
+
+func (z *Zipper) save(mc *minio.Client) error {
+	res, err := mc.FPutObject(
+		context.Background(),
+		z.Bucket,
+		z.ObjName,
+		z.Destination,
+		minio.PutObjectOptions{ContentType: "application/zip"})
+	if err != nil {
+		return err
+	}
+	log.Println("moved:", res.Size/MiB)
+	err = os.Remove(z.Destination)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func fileExists(filename string, filesToIgnore []string) bool {
@@ -90,7 +121,7 @@ func fileExists(filename string, filesToIgnore []string) bool {
 	return !info.IsDir()
 }
 
-func Zip(archive *os.File, targetPath string, ignore []string) error {
+func (z *Zipper) zip(archive *os.File, targetPath string, ignore []string) error {
 	zw := zip.NewWriter(archive)
 	// defer zw.Close()
 	if err := filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
