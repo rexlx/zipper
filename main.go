@@ -31,6 +31,7 @@ var (
 
 func main() {
 	flag.Parse()
+	ignore := flag.Args()
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalln("couldnt get hostname, exiting")
@@ -55,9 +56,9 @@ func main() {
 	if err != nil {
 		log.Fatalln("could not create archive, exiting")
 	}
-	err = Zip(arc, *src)
+	err = Zip(arc, *src, ignore)
 	if err != nil {
-		log.Fatalln("could not create archive, exiting", err)
+		log.Fatalln("failed when zipping, exiting", err)
 	}
 	res, err := mc.FPutObject(
 		context.Background(),
@@ -76,7 +77,12 @@ func main() {
 
 }
 
-func fileExists(filename string) bool {
+func fileExists(filename string, filesToIgnore []string) bool {
+	for _, i := range filesToIgnore {
+		if strings.Contains(filename, fmt.Sprintf("/%v", i)) {
+			return false
+		}
+	}
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -84,11 +90,11 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func Zip(archive *os.File, targetPath string) error {
+func Zip(archive *os.File, targetPath string, ignore []string) error {
 	zw := zip.NewWriter(archive)
-	defer zw.Close()
+	// defer zw.Close()
 	if err := filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+		if err != nil && !os.IsPermission(err) {
 			return err
 		}
 
@@ -103,21 +109,18 @@ func Zip(archive *os.File, targetPath string) error {
 		if err != nil {
 			return err
 		}
-		if strings.Contains(path, ".local/share/containers") {
-			return nil
-		}
-		fsFile, err := os.Open(path)
-		if err != nil {
-			log.Println("open+:", err)
-		}
-		if fileExists(path) {
+		if fileExists(path, ignore) {
+			fsFile, err := os.Open(path)
+			if err != nil && !os.IsPermission(err) {
+				return err
+			}
 			_, err = io.Copy(zfh, fsFile)
 			if err != nil {
-				log.Println("hmm..", err)
+				log.Println("hmm..", err, zfh, fsFile)
 			}
 		}
 		return nil
-	}); err != nil {
+	}); err != nil && !os.IsPermission(err) {
 		return err
 	}
 
