@@ -116,7 +116,7 @@ func (z *Zipper) save(mc *minio.Client) error {
 		return err
 	}
 	end := time.Now()
-	log.Printf("moved: %v MiB in %vs", float32(res.Size)/float32(MiB), end.Sub(start))
+	log.Printf("moved: %v MiB in %v", float32(res.Size)/float32(MiB), end.Sub(start))
 	err = os.Remove(z.Destination)
 	if err != nil {
 		return err
