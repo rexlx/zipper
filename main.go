@@ -50,7 +50,6 @@ const (
 func main() {
 	flag.Parse()
 	ignore := flag.Args()
-	fmt.Print(ignore)
 
 	zpr := Zipper{
 		Start:  time.Now(),
@@ -81,6 +80,8 @@ func main() {
 	if err != nil {
 		log.Fatalln("failed when zipping, exiting", err)
 	}
+
+	log.Println("Finished in", time.Since(zpr.Start))
 
 }
 
@@ -122,8 +123,7 @@ func (z *Zipper) save(mc *minio.Client) error {
 	if err != nil {
 		return err
 	}
-	end := time.Now()
-	log.Printf("moved: %v MiB in %v", float32(res.Size)/float32(MiB), end.Sub(start))
+	log.Printf("moved: %v MiB in %v", float32(res.Size)/float32(MiB), time.Since(start))
 	err = os.Remove(z.Destination)
 	if err != nil {
 		return err
@@ -134,8 +134,8 @@ func (z *Zipper) save(mc *minio.Client) error {
 func (z *Zipper) zip(archive *os.File, targetPath string, ignore []string) error {
 	go func() {
 		for {
-			time.Sleep(5 * time.Second)
-			fmt.Printf("Copied %v files (%v)...\r", z.FilesCopied, TotalWrittenToHumanReadable(z.TotalWritten))
+			time.Sleep(3 * time.Second)
+			fmt.Printf("%v Copied %v files (%v)...\r", time.Now(), z.FilesCopied, TotalWrittenToHumanReadable(z.TotalWritten))
 		}
 	}()
 	zw := zip.NewWriter(archive)
@@ -147,11 +147,6 @@ func (z *Zipper) zip(archive *os.File, targetPath string, ignore []string) error
 
 		if err != nil && os.IsPermission(err) {
 			// log.Println("Skipping file due to permission error:", path)
-			return nil
-		}
-
-		// Skip directories.
-		if info.IsDir() {
 			return nil
 		}
 
@@ -183,7 +178,7 @@ func (z *Zipper) zip(archive *os.File, targetPath string, ignore []string) error
 	zw.Close()
 
 	// Success!
-	log.Println("Compressed folder successfully.")
+	log.Println("Compressed folder successfully, uploading...")
 	return nil
 }
 
