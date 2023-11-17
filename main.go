@@ -146,7 +146,7 @@ func (z *Zipper) zip(archive *os.File, targetPath string, ignore []string) error
 		}
 
 		if err != nil && os.IsPermission(err) {
-			log.Println("Skipping file due to permission error:", path)
+			// log.Println("Skipping file due to permission error:", path)
 			return nil
 		}
 
