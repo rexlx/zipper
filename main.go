@@ -32,11 +32,16 @@ type Zipper struct {
 	SSL          bool      `json:"ssl"`
 }
 
+// you can replace the url/id/key with your own s3 compatible server info as this is just an example
+// of how to hard code the values into flags. Or keep as is and pass the values you'd like as args...
+// the defualts do not work.
 var (
-	src          = flag.String("src", "", "source dir")
-	dst          = flag.String("dst", "", "zip location")
-	s3Id  string = "fgw4Mwn24aj3XIdrIHb6"
-	s3Key string = "4MGexyqyXoduYkCGL6WJaOr2FMowmZ2ObQyCnGOf"
+	src    = flag.String("src", "", "source dir")
+	dst    = flag.String("dst", "", "zip location")
+	bucket = flag.String("bucket", "backup", "s3 bucket")
+	url    = flag.String("url", "cobra.nullferatu.com:9000", "s3 url")
+	s3Id   = flag.String("id", "fgw4Mwn24aj3XIdrIHb6", "s3 id")
+	s3Key  = flag.String("key", "4MGexyqyXoduYkCGL6WJaOr2FMowmZ2ObQyCnGOf", "s3 key")
 )
 
 const (
@@ -53,10 +58,10 @@ func main() {
 
 	zpr := Zipper{
 		Start:  time.Now(),
-		URL:    "cobra.nullferatu.com:9000",
-		ID:     s3Id,
-		Key:    s3Key,
-		Bucket: "backup",
+		URL:    *url,
+		ID:     *s3Id,
+		Key:    *s3Key,
+		Bucket: *bucket,
 		Source: *src,
 		SSL:    false,
 	}
